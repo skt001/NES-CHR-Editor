@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en"> <head>
+  <meta charset="UTF-8" />
+  <title>NES CHR Editor Extended</title> <style>
+    body { 
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+      margin: 0; 
+      padding: 20px; 
+      background: #f5f5f5;
+    }
+    
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      padding: 20px;
+    }
+    
+    h1 {
+      color: #333;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    
+    .toolbar {
+      display: flex;
+      gap: 15px;
+      align-items: center;
+      margin-bottom: 20px;
+      padding: 15px;
+      background: #f8f9fa;
+      border-radius: 5px;
+      flex-wrap: wrap;
+    }
+    
+    .file-group {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    
+    button {
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    
+    button:hover {
+      background: #0056b3;
+    }
+    
+    button:disabled {
+      background: #6c757d;
+      cursor: not-allowed;
+    }
+    
+    input[type="file"] {
+      padding: 5px;
+    }
+    
+    .export-group {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    
+    select {
+      padding: 6px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+    }
+    
+    canvas { 
+      image-rendering: pixelated; 
+      background: #fff; 
+      border: 2px solid #ddd;
+      border-radius: 4px;
+    }
+    
+    #chrCanvas { 
+      cursor: crosshair;
+    }
+    
+    #tools {
+      display: grid;
+      grid-template-columns: auto 1fr 1fr;
+      gap: 30px;
+      align-items: flex-start;
+    }
+    
+    .editor-section {
+      text-align: center;
+    }
+    
+    .editor-section h3 {
+      margin: 0 0 10px 0;
+      color: #555;
+      font-size: 14px;
+    }
+    
+    .editor-canvas {
+      cursor: crosshair;
+      margin-bottom: 15px;
+    }
+    
+    .color-palette {
+      display: flex;
+      gap: 5px;
+      justify-content: center;
+      margin-top: 10px;
+    }
+    
+    .color-button {
+      width: 24px;
+      height: 24px;
+      border: 2px solid #333;
+      cursor: pointer;
+      border-radius: 3px;
+    }
+    
+    .color-button.active {
+      border-color: #ff0000;
+      border-width: 3px;
+    }
+    
+    #headerInfo {
+      font-family: 'Courier New', monospace;
+      background: #e9ecef;
+      padding: 15px;
+      margin-bottom: 20px;
+      border-radius: 5px;
+      border: 1px solid #ced4da;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    
+    .info-line {
+      margin: 5px 0;
+    }
+    
+    .tile-info {
+      background: #fff3cd;
+      border: 1px solid #ffeaa7;
+      padding: 10px;
+      border-radius: 4px;
+      margin-top: 10px;
+      font-size: 12px;
+    }
+    
+    .status-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #343a40;
+      color: white;
+      padding: 8px 20px;
+      font-size: 12px;
+      display: flex;
+      justify-content: space-between;
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    <h1>🎮 NES CHR Editor Extended</h1> <div class="toolbar">
+      <div class="file-group">
+        <input type="file" id="fileInput" accept=".nes,.chr,.zip,.png" />
+        <button id="clearBtn">Clear</button> </div>
+      
+      <div class="export-group">
+        <label>Export Format:</label> <select id="exportFormat">
+          <option value="chr">CHR File (.chr)</option> <option value="png">PNG Image (.png)</option> </select>
+        <button id="exportBtn">Export</button> </div>
+      
+      <button id="undoBtn" disabled>Undo</button> <button id="redoBtn" disabled>Redo</button> <button id="helpBtn">Help</button> </div>
+
+    <div id="helpModal" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border: 2px solid #ccc; border-radius: 8px; padding: 20px; max-width: 500px; z-index: 1000; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+      <h3>📖 User Manual</h3> <div style="max-height: 400px; overflow-y: auto; font-size: 13px; line-height: 1.4;">
+        <h4>🎯 Basic Usage</h4> <ul>
+          <li><strong>Load Files:</strong> NES (.nes), CHR (.chr), ZIP files</li> <li><strong>Select Tile:</strong> Click on CHR grid (left panel)</li> <li><strong>Edit Pixels:</strong> Click on 8x8 editor (middle panel)</li> <li><strong>Choose Color:</strong> Click color buttons or press 0-3 keys</li> </ul>
+        
+        <h4>⌨️ Keyboard Shortcuts</h4> <ul>
+          <li><strong>Ctrl+Z:</strong> Undo</li> <li><strong>Ctrl+Shift+Z:</strong> Redo</li> <li><strong>Ctrl+C:</strong> Copy current tile</li> <li><strong>Ctrl+V:</strong> Paste tile</li> <li><strong>0-3:</strong> Select color palette</li> </ul>
+        
+        <h4>📁 File Formats</h4> <ul>
+          <li><strong>CHR:</strong> Standard NES character data (8KB)</li> <li><strong>NES:</strong> Complete ROM file (CHR extracted)</li> <li><strong>PNG:</strong> Export as 256x256 pixel image</li> <li><strong>ZIP:</strong> Auto-detects NES/CHR inside</li> </ul>
+        
+        <h4>🎨 Color Palette</h4> <ul>
+          <li><strong>0 (Black):</strong> Background/transparent</li> <li><strong>1 (Dark Gray):</strong> Shadow/outline</li> <li><strong>2 (Light Gray):</strong> Midtone/highlight</li> <li><strong>3 (White):</strong> Brightest highlight</li> </ul>
+      </div>
+      <button onclick="document.getElementById('helpModal').style.display='none'" style="margin-top: 10px; float: right;">Close</button> </div>
+    
+    <div id="modalOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999;" onclick="document.getElementById('helpModal').style.display='none'; this.style.display='none';"></div>
+
+    <div id="headerInfo"></div>
+    
+    <div id="tools">
+      <div>
+        <h3>CHR Overview (256 tiles)</h3> <canvas id="chrCanvas" width="256" height="256" title="CHR overview - Click to select tile"></canvas> <div class="tile-info">
+          <div>Selected Tile: <span id="selectedTileInfo">0</span></div> <div>Position: <span id="tilePosition">X:0, Y:0</span></div> </div>
+      </div>
+      
+      <div class="editor-section">
+        <h3>8x8 Tile Editor</h3> <canvas id="editorCanvas8" class="editor-canvas" width="64" height="64" title="8x8 tile editing - Click to draw"></canvas> <div class="color-palette">
+          <div class="color-button active" data-color="0" style="background-color: #000000" title="Color 0: Black"></div> <div class="color-button" data-color="1" style="background-color: #555555" title="Color 1: Dark Gray"></div> <div class="color-button" data-color="2" style="background-color: #aaaaaa" title="Color 2: Light Gray"></div> <div class="color-button" data-color="3" style="background-color: #ffffff" title="Color 3: White"></div> </div>
+        <div style="margin-top: 10px;">
+          <button id="copyTileBtn">Copy Tile</button> <button id="pasteTileBtn" disabled>Paste Tile</button> </div>
+      </div>
+      
+      <div class="editor-section">
+        <h3>16x16 Metatile Preview</h3> <canvas id="editorCanvas16" class="editor-canvas" width="128" height="128" title="16x16 metatile display"></canvas> </div>
+    </div>
+  </div>
+
+  <div class="status-bar">
+    <div id="statusLeft">CHR Editor Ready</div> <div id="statusRight">Mouse: (0, 0)</div> </div>
+
+<script>
+  // Get DOM elements
+  const fileInput = document.getElementById('fileInput');
+  const exportBtn = document.getElementById('exportBtn');
+  const exportFormat = document.getElementById('exportFormat');
+  const clearBtn = document.getElementById('clearBtn');
+  const undoBtn = document.getElementById('undoBtn');
+  const redoBtn = document.getElementById('redoBtn');
+  const copyTileBtn = document.getElementById('copyTileBtn');
+  const pasteTileBtn = document.getElementById('pasteTileBtn');
+  const headerInfo = document.getElementById('headerInfo');
+  const selectedTileInfo = document.getElementById('selectedTileInfo');
+  const tilePosition = document.getElementById('tilePosition');
+  const statusLeft = document.getElementById('statusLeft');
+  const statusRight = document.getElementById('statusRight');
+
+  // Event listener for the help button
+  helpBtn.addEventListener('click', () => {
+    document.getElementById('helpModal').style.display = 'block';
+    document.getElementById('modalOverlay').style.display = 'block';
+  });
+
+  const chrCanvas = document.getElementById('chrCanvas');
+  const chrCtx = chrCanvas.getContext('2d');
+  const editorCanvas8 = document.getElementById('editorCanvas8');
+  const editorCtx8 = editorCanvas8.getContext('2d');
+  const editorCanvas16 = document.getElementById('editorCanvas16');
+  const editorCtx16 = editorCanvas16.getContext('2d');
+
+  // Global variables
+  let chrData = new Uint8Array(8192);
+  let selectedTile = 0;
+  let selectedColor = 0;
+  let copiedTile = null;
+  let undoStack = [];
+  let redoStack = [];
+  const maxUndoSteps = 20;
+
+  const palette = ['#000000', '#555555', '#aaaaaa', '#ffffff'];
+
+  // Undo/Redo system
+  function saveState() {
+    undoStack.push(new Uint8Array(chrData));
+    if (undoStack.length > maxUndoSteps) {
+      undoStack.shift();
+    }
+    redoStack = [];
+    updateUndoRedoButtons();
+  }
+
+  function undo() {
+    if (undoStack.length > 0) {
+      redoStack.push(new Uint8Array(chrData));
+      chrData = undoStack.pop();
+      redrawAll();
+      updateUndoRedoButtons();
+      statusLeft.textContent = "Operation undone"; // Translated
+    }
+  }
+
+  function redo() {
+    if (redoStack.length > 0) {
+      undoStack.push(new Uint8Array(chrData));
+      chrData = redoStack.pop();
+      redrawAll();
+      updateUndoRedoButtons();
+      statusLeft.textContent = "Operation redone"; // Translated
+    }
+  }
+
+  function updateUndoRedoButtons() {
+    undoBtn.disabled = undoStack.length === 0;
+    redoBtn.disabled = redoStack.length === 0;
+  }
+
+  // Logging function
+  function logToHeaderInfo(label, value, type = 'info') {
+    const line = document.createElement("div");
+    line.className = "info-line";
+    const color = type === 'error' ? '#dc3545' : type === 'success' ? '#28a745' : '#333';
+    line.innerHTML = `<strong style="color: ${color}">${label}:</strong> ${value}`;
+    headerInfo.appendChild(line);
+  }
+
+  function clearHeaderInfo() {
+    headerInfo.innerHTML = '';
+  }
+
+  // Drawing functions
+  function drawCHRGrid() {
+    chrCtx.clearRect(0, 0, chrCanvas.width, chrCanvas.height);
+    
+    // Draw all 256 tiles
+    for (let i = 0; i < 256; i++) {
+      const x = (i % 16) * 16;
+      const y = Math.floor(i / 16) * 16;
+      drawTile(chrCtx, chrData, i * 16, x, y, 2);
+    }
+    
+    // Draw grid
+    drawGrid(chrCtx, chrCanvas.width, chrCanvas.height, 16);
+    
+    // Highlight selected tile
+    drawSelectionBox();
+  }
+
+  function drawTile(ctx, data, offset, dx, dy, scale) {
+    for (let row = 0; row < 8; row++) {
+      const plane1 = data[offset + row];
+      const plane2 = data[offset + row + 8];
+      
+      for (let col = 0; col < 8; col++) {
+        const bit1 = (plane1 >> (7 - col)) & 1;
+        const bit2 = (plane2 >> (7 - col)) & 1;
+        const colorIndex = bit1 + (bit2 << 1);
+        
+        ctx.fillStyle = palette[colorIndex];
+        ctx.fillRect(dx + col * scale, dy + row * scale, scale, scale);
+      }
+    }
+  }
+
+  function drawGrid(ctx, w, h, size) {
+    ctx.strokeStyle = '#cccccc';
+    ctx.lineWidth = 1;
+    ctx.globalAlpha = 0.5;
+    
+    for (let x = 0; x <= w; x += size) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, h);
+      ctx.stroke();
+    }
+    
+    for (let y = 0; y <= h; y += size) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(w, y);
+      ctx.stroke();
+    }
+    
+    ctx.globalAlpha = 1.0;
+  }
+
+  function drawSelectionBox() {
+    const x = (selectedTile % 16) * 16;
+    const y = Math.floor(selectedTile / 16) * 16;
+    
+    chrCtx.strokeStyle = '#ff0000';
+    chrCtx.lineWidth = 2;
+    chrCtx.strokeRect(x - 1, y - 1, 18, 18);
+  }
+
+  function drawEditorTile8() {
+    editorCtx8.clearRect(0, 0, 64, 64);
+    drawTile(editorCtx8, chrData, selectedTile * 16, 0, 0, 8);
+    drawGrid(editorCtx8, 64, 64, 8);
+  }
+
+  function drawEditorTile16() {
+    editorCtx16.clearRect(0, 0, 128, 128);
+    
+    // 16x16 metatile (2x2 tile arrangement)
+    const baseTile = selectedTile - (selectedTile % 16);
+    const tilesToDraw = [
+      selectedTile,
+      selectedTile + 1,
+      selectedTile + 16,
+      selectedTile + 17
+    ];
+    
+    tilesToDraw.forEach((tileIdx, i) => {
+      if (tileIdx >= 0 && tileIdx < 256) {
+        const dx = (i % 2) * 64;
+        const dy = Math.floor(i / 2) * 64;
+        drawTile(editorCtx16, chrData, tileIdx * 16, dx, dy, 8);
+      }
+    });
+    
+    drawGrid(editorCtx16, 128, 128, 8);
+  }
+
+  function redrawAll() {
+    drawCHRGrid();
+    drawEditorTile8();
+    drawEditorTile16();
+    updateTileInfo();
+  }
+
+  function updateTileInfo() {
+    selectedTileInfo.textContent = `${selectedTile} (0x${selectedTile.toString(16).toUpperCase().padStart(2, '0')})`;
+    const x = selectedTile % 16;
+    const y = Math.floor(selectedTile / 16);
+    tilePosition.textContent = `X:${x}, Y:${y}`;
+  }
+
+  // Pixel editing functions
+  function setPixelInCHR(tileIndex, x, y, colorIndex) {
+    const offset = tileIndex * 16;
+    const bit1 = colorIndex & 1;
+    const bit2 = (colorIndex >> 1) & 1;
+
+    // Plane 1 (lower bits)
+    chrData[offset + y] &= ~(1 << (7 - x));
+    chrData[offset + y] |= (bit1 << (7 - x));
+    
+    // Plane 2 (upper bits)
+    chrData[offset + y + 8] &= ~(1 << (7 - x));
+    chrData[offset + y + 8] |= (bit2 << (7 - x));
+  }
+
+  function getPixelFromCHR(tileIndex, x, y) {
+    const offset = tileIndex * 16;
+    const bit1 = (chrData[offset + y] >> (7 - x)) & 1;
+    const bit2 = (chrData[offset + y + 8] >> (7 - x)) & 1;
+    return bit1 + (bit2 << 1);
+  }
+
+  // Event listener setup
+  
+  // CHR canvas click (tile selection)
+  chrCanvas.addEventListener('click', (e) => {
+    const rect = chrCanvas.getBoundingClientRect();
+    const x = Math.floor((e.clientX - rect.left) / 16);
+    const y = Math.floor((e.clientY - rect.top) / 16);
+    
+    const newTile = y * 16 + x;
+    if (newTile >= 0 && newTile < 256) {
+      selectedTile = newTile;
+      redrawAll();
+    }
+  });
+
+  // 8x8 editor click (pixel editing)
+  editorCanvas8.addEventListener('click', (e) => {
+    const rect = editorCanvas8.getBoundingClientRect();
+    const x = Math.floor((e.clientX - rect.left) / 8);
+    const y = Math.floor((e.clientY - rect.top) / 8);
+    
+    if (x >= 0 && x < 8 && y >= 0 && y < 8) {
+      saveState();
+      setPixelInCHR(selectedTile, x, y, selectedColor);
+      redrawAll();
+      statusLeft.textContent = `Drew pixel with color ${selectedColor}`; // Translated
+    }
+  });
+
+  // Color palette selection
+  document.querySelectorAll('.color-button').forEach((btn, index) => {
+    btn.addEventListener('click', () => {
+      document.querySelector('.color-button.active').classList.remove('active');
+      btn.classList.add('active');
+      selectedColor = parseInt(btn.dataset.color);
+      statusLeft.textContent = `Selected color ${selectedColor}`; // Translated
+    });
+  });
+
+  // Display mouse coordinates
+  document.addEventListener('mousemove', (e) => {
+    statusRight.textContent = `Mouse: (${e.clientX}, ${e.clientY})`;
+  });
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey || e.metaKey) {
+      switch(e.key) {
+        case 'z':
+          e.preventDefault();
+          if (e.shiftKey) {
+            redo();
+          } else {
+            undo();
+          }
+          break;
+        case 'c':
+          e.preventDefault();
+          copyTile();
+          break;
+        case 'v':
+          e.preventDefault();
+          pasteTile();
+          break;
+      }
+    }
+    
+    // Select color with number keys
+    if (e.key >= '0' && e.key <= '3') {
+      const colorIndex = parseInt(e.key);
+      document.querySelector('.color-button.active').classList.remove('active');
+      document.querySelector(`[data-color="${colorIndex}"]`).classList.add('active');
+      selectedColor = colorIndex;
+      statusLeft.textContent = `Selected color ${selectedColor} with keyboard`; // Translated
+    }
+  });
+
+  // File loading
+  fileInput.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    clearHeaderInfo();
+    const arrayBuffer = await file.arrayBuffer();
+    let success = false;
+
+    try {
+      if (file.name.endsWith(".zip")) {
+        success = await loadZipFile(arrayBuffer);
+      } else if (file.name.endsWith(".chr")) {
+        success = loadCHRFile(new Uint8Array(arrayBuffer));
+      } else if (file.name.endsWith(".nes")) {
+        success = loadNESFile(new Uint8Array(arrayBuffer));
+      } else if (file.name.endsWith(".png")) {
+        logToHeaderInfo("Info", "PNG loading is planned for a future update.", "info"); // Translated
+        return;
+      } else {
+        logToHeaderInfo("Error", "Unsupported file format.", "error"); // Translated
+        return;
+      }
+
+      if (success) {
+        saveState(); // Save initial state
+        redrawAll();
+        statusLeft.textContent = `Loaded ${file.name}`; // Translated
+      }
+    } catch (error) {
+      logToHeaderInfo("Error", `File loading error: ${error.message}`, "error"); // Translated
+    }
+  });
+
+  async function loadZipFile(arrayBuffer) {
+    const zip = await JSZip.loadAsync(arrayBuffer);
+    const targetFile = Object.values(zip.files).find(f =>
+      f.name.endsWith(".nes") || f.name.endsWith(".chr")
+    );
+
+    if (!targetFile) {
+      logToHeaderInfo("Error", "NES or CHR file not found in ZIP.", "error"); // Translated
+      return false;
+    }
+
+    const fileData = new Uint8Array(await targetFile.async("uint8array"));
+    logToHeaderInfo("ZIP Unpacked", `Success: ${targetFile.name}`, "success"); // Translated ("ZIP展開" -> "ZIP Unpacked", "成功" -> "Success")
+
+    if (targetFile.name.endsWith(".chr")) {
+      return loadCHRFile(fileData);
+    } else {
+      return loadNESFile(fileData);
+    }
+  }
+
+  function loadCHRFile(data) {
+    chrData.fill(0);
+    chrData.set(data.slice(0, 8192));
+    logToHeaderInfo("Loaded", `CHR data: ${Math.min(data.length, 8192)} bytes`, "success"); // Translated ("読み込み" -> "Loaded")
+    return true;
+  }
+
+  function loadNESFile(data) {
+    if (data.length < 16 || 
+        data[0] !== 0x4E || data[1] !== 0x45 || 
+        data[2] !== 0x53 || data[3] !== 0x1A) {
+      logToHeaderInfo("Error", "Invalid NES file header.", "error"); // Translated
+      return false;
+    }
+
+    const prgSize = data[4] * 16384;
+    const chrSize = data[5] * 8192;
+    
+    logToHeaderInfo("NES Header", `PRG: ${prgSize} bytes, CHR: ${chrSize} bytes`, "info"); // Translated ("NESヘッダ" -> "NES Header")
+
+    if (chrSize === 0) {
+      logToHeaderInfo("Warning", "This NES file does not contain CHR data.", "error"); // Translated ("警告" -> "Warning")
+      return false;
+    }
+
+    if (16 + prgSize + chrSize > data.length) {
+      logToHeaderInfo("Error", "Invalid file size.", "error"); // Translated
+      return false;
+    }
+
+    chrData.fill(0);
+    chrData.set(data.slice(16 + prgSize, 16 + prgSize + Math.min(chrSize, 8192)));
+    logToHeaderInfo("Loaded", "Extracted CHR data from NES file.", "success"); // Translated ("読み込み" -> "Loaded")
+    return true;
+  }
+
+  // Tile copy & paste
+  function copyTile() {
+    copiedTile = new Uint8Array(16);
+    const offset = selectedTile * 16;
+    copiedTile.set(chrData.slice(offset, offset + 16));
+    pasteTileBtn.disabled = false;
+    statusLeft.textContent = `Copied tile ${selectedTile}`; // Translated
+  }
+
+  function pasteTile() {
+    if (copiedTile) {
+      saveState();
+      const offset = selectedTile * 16;
+      chrData.set(copiedTile, offset);
+      redrawAll();
+      statusLeft.textContent = `Pasted to tile ${selectedTile}`; // Translated
+    }
+  }
+
+  // PNG export function
+  function exportToPNG() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+    
+    // Draw CHR data as PNG
+    for (let i = 0; i < 256; i++) {
+      const x = (i % 16) * 16;
+      const y = Math.floor(i / 16) * 16;
+      drawTile(ctx, chrData, i * 16, x, y, 2);
+    }
+    
+    // Download
+    canvas.toBlob((blob) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'chr_export.png';
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  }
+
+  // Add event listeners
+  exportBtn.addEventListener('click', () => {
+    const format = exportFormat.value;
+    
+    switch(format) {
+      case 'chr':
+        const blob = new Blob([chrData], {type: 'application/octet-stream'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `chr_export.${format}`;
+        a.click();
+        URL.revokeObjectURL(url);
+        statusLeft.textContent = `${format.toUpperCase()} file exported`; // Already in English
+        break;
+        
+      case 'png':
+        exportToPNG();
+        statusLeft.textContent = "PNG file exported"; // Already in English
+        break;
+    }
+  });
+
+  clearBtn.addEventListener('click', () => {
+    if (confirm('Clear all CHR data?')) { // Already in English
+      saveState();
+      chrData.fill(0);
+      redrawAll();
+      statusLeft.textContent = "CHR data cleared"; // Already in English
+    }
+  });
+
+  undoBtn.addEventListener('click', undo);
+  redoBtn.addEventListener('click', redo);
+  copyTileBtn.addEventListener('click', copyTile);
+  pasteTileBtn.addEventListener('click', pasteTile);
+
+  // Initial draw
+  redrawAll();
+  statusLeft.textContent = "CHR Editor Ready - Please load a file"; // Already in English
+</script>
+</body>
+</html>
